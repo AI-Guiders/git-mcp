@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "mcp_id": "git-mcp",
+  "title": "Git MCP",
+  "tools": [
+    {
+      "name": "git_status",
+      "description": "Состояние репозитория: ветка, изменённые/добавленные/удалённые файлы. workspace_path — корень репо (каталог с .git)."
+    },
+    {
+      "name": "git_diff",
+      "description": "Дифф: не застейдженные изменения (или --staged по опции). Опционально path — один файл/путь."
+    },
+    {
+      "name": "git_log",
+      "description": "Лог коммитов (git log -n N --oneline). По умолчанию последние 20."
+    },
+    {
+      "name": "git_commit",
+      "description": "Сделать коммит: git add (указанные пути или всё), затем git commit -m. Вызывать только по решению пользователя (логические коммиты)."
+    },
+    {
+      "name": "git_push",
+      "description": "Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. Вызывать по решению пользователя."
+    }
+  ]
+}
