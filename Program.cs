@@ -9,16 +9,9 @@ using Tool = ModelContextProtocol.Protocol.Tool;
 
 // MCP-сервер «Git»: status, diff, log, fetch, pull, branch, show, submodule, commit, push.
 // Логика argv — GitMcp.Core (паритет с Cascade IDE, ADR 0019).
+// Корень репо: GitWorkTree.GetRepoRoot (поддержка субмодуля: .git — файл).
 
-static string GetRepoRoot(string repoRoot)
-{
-    var root = Path.GetFullPath(repoRoot.Trim());
-    if (File.Exists(root))
-        root = Path.GetDirectoryName(root) ?? root;
-    if (!Directory.Exists(Path.Combine(root, ".git")))
-        throw new ArgumentException($"Not a git repository: {root}");
-    return root;
-}
+static string GetRepoRoot(string repoRoot) => GitWorkTree.GetRepoRoot(repoRoot);
 
 static (string output, int exitCode) RunGitRaw(string root, IReadOnlyList<string> args, Encoding? encoding = null)
 {
@@ -103,7 +96,7 @@ static IReadOnlyList<string> GetStringArray(IReadOnlyDictionary<string, JsonElem
 
 var options = new McpServerOptions
 {
-    ServerInfo = new Implementation { Name = "GitMcp", Version = "0.3.0" },
+    ServerInfo = new Implementation { Name = "GitMcp", Version = "0.3.1" },
     ProtocolVersion = "2024-11-05",
     Capabilities = new ServerCapabilities { Tools = new ToolsCapability { ListChanged = false } },
     Handlers = new McpServerHandlers

@@ -13,7 +13,7 @@ internal static class ToolCatalog
         {
             Name = "git_status",
             Description =
-                "Состояние репозитория: ветка, изменённые/добавленные/удалённые файлы. workspace_path — корень репо (каталог с .git).",
+                "Состояние репозитория: ветка, изменённые/добавленные/удалённые файлы. workspace_path — корень репо (каталог .git или файл .git у субмодуля).",
             InputSchema = Schema(new
             {
                 type = "object",
