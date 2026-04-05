@@ -1,6 +1,6 @@
 # Git MCP
 
-MCP-сервер с тулами **git_status**, **git_diff**, **git_log**, **git_commit**, **git_push**. Агент видит состояние репозитория и диффы без выхода из чата. Подключается в Cursor (и где угодно) — один exe, stdio.
+MCP-сервер с тулами **git_status**, **git_diff**, **git_log**, **git_fetch**, **git_pull**, **git_branch**, **git_show**, **git_submodule**, **git_commit**, **git_push**. Агент видит состояние репозитория и диффы без выхода из чата. Подключается в Cursor (и где угодно) — один exe, stdio.
 
 ## Стек
 
@@ -28,5 +28,10 @@ dotnet publish -c Release -o publish
 | `git_log` | Последние коммиты (git log -n N --oneline). | `workspace_path`, опционально `n` (по умолчанию 20, макс 500) |
 | `git_commit` | Коммит: add (указанные пути или всё) + commit -m. Только по решению пользователя. | `workspace_path`, `message`, опционально `paths` (массив строк) |
 | `git_push` | Push в remote. По умолчанию origin и текущая ветка. По решению пользователя. | `workspace_path`, опционально `remote`, `branch` |
+| `git_fetch` | Обновить refs с remote (`fetch`, опционально `--all`, `--prune`, имя remote). | `workspace_path`, опционально `remote`, `all`, `prune` |
+| `git_pull` | Подтянуть в текущую ветку; по умолчанию `--ff-only`. Без `remote`/`branch` — upstream. | `workspace_path`, опционально `remote`+`branch` вместе, `ff_only` |
+| `git_branch` | Список веток (`list`), создание (`create`), удаление (`delete`). | `workspace_path`, `action`, опционально `name`, `start_point`, `force` |
+| `git_show` | Показать объект/коммит (`rev`), опционально файл или `--stat`. | `workspace_path`, `rev`, опционально `path`, `stat_only` |
+| `git_submodule` | `status` или `update --init` (по умолчанию `--recursive`). | `workspace_path`, опционально `action`, `path`, `recursive` |
 
 `workspace_path` — каталог с репозиторием (корень, где лежит `.git`).

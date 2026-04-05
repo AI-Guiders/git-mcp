@@ -22,6 +22,26 @@
     {
       "name": "git_push",
       "description": "Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. Вызывать по решению пользователя."
+    },
+    {
+      "name": "git_fetch",
+      "description": "git fetch: обновить ссылки remote (refs/remotes). Опционально remote, --all или --prune. Без слияния в рабочее дерево."
+    },
+    {
+      "name": "git_pull",
+      "description": "git pull: подтянуть и слить в текущую ветку. По умолчанию --ff-only (без merge-коммита от агента). Явно: remote + branch. Иначе — upstream текущей ветки."
+    },
+    {
+      "name": "git_branch",
+      "description": "Ветки: action=list (ветки -vv), create (git branch name [start_point]), delete (-d или -D при force). По умолчанию list."
+    },
+    {
+      "name": "git_show",
+      "description": "git show: содержимое коммита или объекта (rev: HEAD, хеш, ветка~1). Опционально path — файл в этой ревизии; stat_only — только --stat."
+    },
+    {
+      "name": "git_submodule",
+      "description": "Субмодули: action=status (git submodule status) или update (git submodule update --init [--recursive], опционально path)."
     }
   ]
 }

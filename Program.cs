@@ -6,7 +6,7 @@ using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using Tool = ModelContextProtocol.Protocol.Tool;
 
-// MCP-сервер «Git»: status, diff, log по репозиторию в workspace_path.
+// MCP-сервер «Git»: status, diff, log, fetch, pull, branch, show, submodule, commit, push.
 // Подключается в Cursor (и где угодно) — агент видит состояние репо без выхода из чата.
 
 static string GetRepoRoot(string repoRoot)
@@ -69,6 +69,30 @@ static string GetString(IReadOnlyDictionary<string, JsonElement> args, string ke
 static bool GetBool(IReadOnlyDictionary<string, JsonElement> args, string key)
     => args.TryGetValue(key, out var v) && v.ValueKind == JsonValueKind.True;
 
+static bool GetBoolOrDefault(IReadOnlyDictionary<string, JsonElement> args, string key, bool defaultValue)
+{
+    if (!args.TryGetValue(key, out var v))
+        return defaultValue;
+    return v.ValueKind switch
+    {
+        JsonValueKind.True => true,
+        JsonValueKind.False => false,
+        _ => defaultValue
+    };
+}
+
+/// <summary>Экранирование одного аргумента для строки <c>git</c> (пробелы, кавычки).</summary>
+static string QuoteGitArg(string s)
+{
+    s = s.Trim();
+    if (s.Length == 0)
+        return "\"\"";
+    s = s.Replace("\"", "\\\"", StringComparison.Ordinal);
+    if (s.Contains(' ', StringComparison.Ordinal) || s.Contains('\t', StringComparison.Ordinal))
+        return "\"" + s + "\"";
+    return s;
+}
+
 static int GetInt(IReadOnlyDictionary<string, JsonElement> args, string key, int defaultValue)
     => args.TryGetValue(key, out var v) && v.TryGetInt32(out var n) ? n : defaultValue;
 
@@ -88,7 +112,7 @@ static IReadOnlyList<string> GetStringArray(IReadOnlyDictionary<string, JsonElem
 
 var options = new McpServerOptions
 {
-    ServerInfo = new Implementation { Name = "GitMcp", Version = "0.1.0" },
+    ServerInfo = new Implementation { Name = "GitMcp", Version = "0.2.0" },
     ProtocolVersion = "2024-11-05",
     Capabilities = new ServerCapabilities { Tools = new ToolsCapability { ListChanged = false } },
     Handlers = new McpServerHandlers
@@ -133,8 +157,99 @@ var options = new McpServerOptions
                         var remote = GetString(args, "remote");
                         if (string.IsNullOrWhiteSpace(remote)) remote = "origin";
                         var branch = GetString(args, "branch");
-                        var pushArgs = string.IsNullOrWhiteSpace(branch) ? $"push {remote}" : $"push {remote} {branch}";
+                        var pushArgs = string.IsNullOrWhiteSpace(branch) ? $"push {QuoteGitArg(remote)}" : $"push {QuoteGitArg(remote)} {QuoteGitArg(branch)}";
                         text = RunGit(workspacePath, pushArgs);
+                        break;
+                    case "git_fetch":
+                        var fetchAll = GetBool(args, "all");
+                        var fetchPrune = GetBool(args, "prune");
+                        var fetchRemote = GetString(args, "remote");
+                        if (fetchAll && !string.IsNullOrWhiteSpace(fetchRemote))
+                            throw new ArgumentException("git_fetch: do not pass remote when all=true.");
+                        var fetchCmd = new StringBuilder("fetch");
+                        if (fetchAll)
+                        {
+                            fetchCmd.Append(" --all");
+                            if (fetchPrune) fetchCmd.Append(" --prune");
+                        }
+                        else
+                        {
+                            if (fetchPrune) fetchCmd.Append(" --prune");
+                            if (!string.IsNullOrWhiteSpace(fetchRemote))
+                                fetchCmd.Append(' ').Append(QuoteGitArg(fetchRemote));
+                        }
+                        text = RunGit(workspacePath, fetchCmd.ToString());
+                        break;
+                    case "git_pull":
+                        var pullRem = GetString(args, "remote").Trim();
+                        var pullBr = GetString(args, "branch").Trim();
+                        var ffOnly = GetBoolOrDefault(args, "ff_only", true);
+                        if (string.IsNullOrWhiteSpace(pullRem) != string.IsNullOrWhiteSpace(pullBr))
+                            throw new ArgumentException("git_pull: specify both remote and branch, or neither (pull upstream).");
+                        var ffFlag = ffOnly ? "--ff-only" : "";
+                        if (string.IsNullOrWhiteSpace(pullRem))
+                            text = RunGit(workspacePath, string.IsNullOrEmpty(ffFlag) ? "pull" : $"pull {ffFlag}");
+                        else
+                            text = RunGit(workspacePath, $"pull {ffFlag} {QuoteGitArg(pullRem)} {QuoteGitArg(pullBr)}".Trim());
+                        break;
+                    case "git_branch":
+                        var bAction = GetString(args, "action").Trim();
+                        if (string.IsNullOrWhiteSpace(bAction)) bAction = "list";
+                        switch (bAction.ToLowerInvariant())
+                        {
+                            case "list":
+                                text = RunGit(workspacePath, "branch -vv");
+                                break;
+                            case "create":
+                                var bn = GetString(args, "name").Trim();
+                                if (string.IsNullOrWhiteSpace(bn)) throw new ArgumentException("git_branch create: name is required.");
+                                var sp = GetString(args, "start_point").Trim();
+                                text = string.IsNullOrWhiteSpace(sp)
+                                    ? RunGit(workspacePath, "branch " + QuoteGitArg(bn))
+                                    : RunGit(workspacePath, "branch " + QuoteGitArg(bn) + " " + QuoteGitArg(sp));
+                                break;
+                            case "delete":
+                                var dn = GetString(args, "name").Trim();
+                                if (string.IsNullOrWhiteSpace(dn)) throw new ArgumentException("git_branch delete: name is required.");
+                                var force = GetBool(args, "force");
+                                text = RunGit(workspacePath, "branch " + (force ? "-D " : "-d ") + QuoteGitArg(dn));
+                                break;
+                            default:
+                                throw new ArgumentException("git_branch: action must be list, create, or delete.");
+                        }
+                        break;
+                    case "git_show":
+                        var rev = GetString(args, "rev").Trim();
+                        if (string.IsNullOrWhiteSpace(rev)) throw new ArgumentException("git_show: rev is required.");
+                        var showPath = GetString(args, "path");
+                        var statOnly = GetBool(args, "stat_only");
+                        if (statOnly)
+                            text = RunGit(workspacePath, "show --stat " + QuoteGitArg(rev));
+                        else if (!string.IsNullOrWhiteSpace(showPath))
+                            text = RunGit(workspacePath, "show " + QuoteGitArg(rev) + " -- " + QuoteGitArg(showPath));
+                        else
+                            text = RunGit(workspacePath, "show " + QuoteGitArg(rev));
+                        break;
+                    case "git_submodule":
+                        var subAction = GetString(args, "action").Trim();
+                        if (string.IsNullOrWhiteSpace(subAction)) subAction = "status";
+                        switch (subAction.ToLowerInvariant())
+                        {
+                            case "status":
+                                text = RunGit(workspacePath, "submodule status");
+                                break;
+                            case "update":
+                                var rec = GetBoolOrDefault(args, "recursive", true);
+                                var subPath = GetString(args, "path").Trim();
+                                var subCmd = new StringBuilder("submodule update --init");
+                                if (rec) subCmd.Append(" --recursive");
+                                if (!string.IsNullOrWhiteSpace(subPath))
+                                    subCmd.Append(" -- ").Append(QuoteGitArg(subPath));
+                                text = RunGit(workspacePath, subCmd.ToString());
+                                break;
+                            default:
+                                throw new ArgumentException("git_submodule: action must be status or update.");
+                        }
                         break;
                     default: throw new ArgumentException($"Unknown tool: {name}.");
                 }
