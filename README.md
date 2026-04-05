@@ -6,7 +6,7 @@ MCP-сервер с тулами **git_status**, **git_diff**, **git_log**, **gi
 
 - C#, .NET 10, win-x64, self-contained (как agent-notes-mcp, dotnet-debug-mcp).
 - Вызовы `git` через процесс (требуется установленный git в PATH).
-- Семантика списка аргументов — библиотека **`GitMcp.Core`** (соседний каталог в meta-repo `open`: `../git-mcp-core/`). Сборка из **одного клона `open`**: `git-mcp` и `git-mcp-core` должны лежать рядом; отдельный клон только `git-mcp` без Core не соберётся без копирования проекта или правки ссылки.
+- Семантика списка аргументов — библиотека **`GitMcp.Core`** (`../git-mcp-core/` в meta-repo `open`, субмодуль; канон — GitLab Krawler, зеркало на GitHub). Рядом с клоном `git-mcp` должен быть Core или поправь `ProjectReference`.
 
 ## Публикация
 
