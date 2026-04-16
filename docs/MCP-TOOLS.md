@@ -26,15 +26,15 @@
 
 ### `git_push`
 
-Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. Вызывать по решению пользователя.
+Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. dry_run=true — git push --dry-run (без отправки). Вызывать по решению пользователя.
 
 ### `git_fetch`
 
-git fetch: обновить ссылки remote (refs/remotes). Опционально remote, --all или --prune. Без слияния в рабочее дерево.
+git fetch: обновить ссылки remote (refs/remotes). Опционально remote, --all или --prune. dry_run=true — git fetch --dry-run. Без слияния в рабочее дерево.
 
 ### `git_pull`
 
-git pull: подтянуть и слить в текущую ветку. По умолчанию --ff-only (без merge-коммита от агента). Явно: remote + branch. Иначе — upstream текущей ветки.
+git pull: подтянуть и слить в текущую ветку. По умолчанию --ff-only (без merge-коммита от агента). dry_run=true — git pull --dry-run (Git 2.27+). Явно: remote + branch. Иначе — upstream текущей ветки.
 
 ### `git_branch`
 

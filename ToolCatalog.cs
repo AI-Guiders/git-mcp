@@ -78,7 +78,7 @@ internal static class ToolCatalog
         {
             Name = "git_push",
             Description =
-                "Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. Вызывать по решению пользователя.",
+                "Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. dry_run=true — git push --dry-run (без отправки). Вызывать по решению пользователя.",
             InputSchema = Schema(new
             {
                 type = "object",
@@ -86,7 +86,8 @@ internal static class ToolCatalog
                 {
                     workspace_path = new { type = "string", description = "Корень репозитория." },
                     remote = new { type = "string", description = "Опционально: remote (по умолчанию origin)." },
-                    branch = new { type = "string", description = "Опционально: ветка для push. Если не задано — текущая." }
+                    branch = new { type = "string", description = "Опционально: ветка для push. Если не задано — текущая." },
+                    dry_run = new { type = "boolean", description = "Опционально: true — только предпросмотр (--dry-run)." }
                 },
                 required = new[] { "workspace_path" }
             })
@@ -95,7 +96,7 @@ internal static class ToolCatalog
         {
             Name = "git_fetch",
             Description =
-                "git fetch: обновить ссылки remote (refs/remotes). Опционально remote, --all или --prune. Без слияния в рабочее дерево.",
+                "git fetch: обновить ссылки remote (refs/remotes). Опционально remote, --all или --prune. dry_run=true — git fetch --dry-run. Без слияния в рабочее дерево.",
             InputSchema = Schema(new
             {
                 type = "object",
@@ -104,7 +105,8 @@ internal static class ToolCatalog
                     workspace_path = new { type = "string", description = "Корень репозитория." },
                     remote = new { type = "string", description = "Опционально: remote (например origin). Не использовать вместе с all=true." },
                     all = new { type = "boolean", description = "Опционально: true — git fetch --all (все remotes)." },
-                    prune = new { type = "boolean", description = "Опционально: true — git fetch --prune." }
+                    prune = new { type = "boolean", description = "Опционально: true — git fetch --prune." },
+                    dry_run = new { type = "boolean", description = "Опционально: true — только предпросмотр (--dry-run)." }
                 },
                 required = new[] { "workspace_path" }
             })
@@ -113,7 +115,7 @@ internal static class ToolCatalog
         {
             Name = "git_pull",
             Description =
-                "git pull: подтянуть и слить в текущую ветку. По умолчанию --ff-only (без merge-коммита от агента). Явно: remote + branch. Иначе — upstream текущей ветки.",
+                "git pull: подтянуть и слить в текущую ветку. По умолчанию --ff-only (без merge-коммита от агента). dry_run=true — git pull --dry-run (Git 2.27+). Явно: remote + branch. Иначе — upstream текущей ветки.",
             InputSchema = Schema(new
             {
                 type = "object",
@@ -122,7 +124,8 @@ internal static class ToolCatalog
                     workspace_path = new { type = "string", description = "Корень репозитория." },
                     remote = new { type = "string", description = "Опционально: вместе с branch — git pull remote branch." },
                     branch = new { type = "string", description = "Опционально: вместе с remote." },
-                    ff_only = new { type = "boolean", description = "Опционально: по умолчанию true (--ff-only). false — разрешить merge при pull." }
+                    ff_only = new { type = "boolean", description = "Опционально: по умолчанию true (--ff-only). false — разрешить merge при pull." },
+                    dry_run = new { type = "boolean", description = "Опционально: true — только предпросмотр (--dry-run)." }
                 },
                 required = new[] { "workspace_path" }
             })

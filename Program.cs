@@ -96,7 +96,7 @@ static IReadOnlyList<string> GetStringArray(IReadOnlyDictionary<string, JsonElem
 
 var options = new McpServerOptions
 {
-    ServerInfo = new Implementation { Name = "GitMcp", Version = "0.3.1" },
+    ServerInfo = new Implementation { Name = "GitMcp", Version = "0.3.2" },
     ProtocolVersion = "2024-11-05",
     Capabilities = new ServerCapabilities { Tools = new ToolsCapability { ListChanged = false } },
     Handlers = new McpServerHandlers
@@ -141,13 +141,15 @@ var options = new McpServerOptions
                     case "git_push":
                         var remote = GetString(args, "remote");
                         var branch = GetString(args, "branch");
-                        text = RunGit(workspacePath, GitCommandBuilder.Push(remote, branch, defaultOriginWhenRemoteEmpty: true));
+                        var pushDry = GetBool(args, "dry_run");
+                        text = RunGit(workspacePath, GitCommandBuilder.Push(remote, branch, defaultOriginWhenRemoteEmpty: true, pushDry));
                         break;
                     case "git_fetch":
                         var fetchAll = GetBool(args, "all");
                         var fetchPrune = GetBool(args, "prune");
                         var fetchRemote = GetString(args, "remote");
-                        var fetchR = GitCommandBuilder.Fetch(fetchAll, fetchPrune, fetchRemote);
+                        var fetchDry = GetBool(args, "dry_run");
+                        var fetchR = GitCommandBuilder.Fetch(fetchAll, fetchPrune, fetchRemote, fetchDry);
                         if (!fetchR.IsSuccess)
                             throw new ArgumentException(fetchR.Error);
                         text = RunGit(workspacePath, fetchR.Args!);
@@ -156,7 +158,8 @@ var options = new McpServerOptions
                         var pullRem = GetString(args, "remote").Trim();
                         var pullBr = GetString(args, "branch").Trim();
                         var ffOnly = GetBoolOrDefault(args, "ff_only", true);
-                        var pullR = GitCommandBuilder.Pull(pullRem, pullBr, ffOnly);
+                        var pullDry = GetBool(args, "dry_run");
+                        var pullR = GitCommandBuilder.Pull(pullRem, pullBr, ffOnly, pullDry);
                         if (!pullR.IsSuccess)
                             throw new ArgumentException(pullR.Error);
                         text = RunGit(workspacePath, pullR.Args!);
