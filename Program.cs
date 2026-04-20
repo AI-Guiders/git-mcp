@@ -224,6 +224,7 @@ var options = new McpServerOptions
                     case "git_preflight":
                     {
                         var stagedPreflight = GetBool(args, "staged");
+                        var includeUntracked = GetBoolOrDefault(args, "include_untracked", true);
                         var includePatches = GetBoolOrDefault(args, "include_patches", true);
 
                         var changedOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(stagedPreflight));
@@ -231,6 +232,9 @@ var options = new McpServerOptions
                         var ignoreWsOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(stagedPreflight, ignoreWhitespace: true, ignoreCrAtEol: true));
 
                         var changed = GitPreflight.ParseNameOnlyOutput(changedOutput);
+                        var untracked = includeUntracked
+                            ? GitPreflight.ParseNameOnlyOutput(RunGit(workspacePath, GitCommandBuilder.ListUntracked()))
+                            : [];
                         var ignoreCr = GitPreflight.ParseNameOnlyOutput(ignoreCrOutput);
                         var ignoreWs = GitPreflight.ParseNameOnlyOutput(ignoreWsOutput);
 
@@ -247,12 +251,56 @@ var options = new McpServerOptions
                             }
                         }
 
-                        var report = GitPreflight.BuildReport(changed, ignoreCr, ignoreWs, patches);
+                        var report = GitPreflight.BuildReport(changed, untracked, ignoreCr, ignoreWs, patches);
                         text = JsonSerializer.Serialize(new
                         {
                             success = true,
                             staged = stagedPreflight,
                             changed_files = report.ChangedFiles,
+                            untracked_files = report.UntrackedFiles,
+                            semantic_files = report.SemanticFiles,
+                            whitespace_only_files = report.WhitespaceOnlyFiles,
+                            eol_only_files = report.EolOnlyFiles,
+                            bom_only_files = report.BomOnlyFiles,
+                            suggested_safe_fix_commands = report.SuggestedSafeFixCommands
+                        });
+                        break;
+                    }
+                    case "git_preflight_fix_safe":
+                    {
+                        var includePatches = GetBoolOrDefault(args, "include_patches", true);
+                        RunGit(workspacePath, GitCommandBuilder.AddRenormalize());
+
+                        var changedOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(staged: false));
+                        var ignoreCrOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(staged: false, ignoreCrAtEol: true));
+                        var ignoreWsOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(staged: false, ignoreWhitespace: true, ignoreCrAtEol: true));
+                        var untrackedOutput = RunGit(workspacePath, GitCommandBuilder.ListUntracked());
+
+                        var changed = GitPreflight.ParseNameOnlyOutput(changedOutput);
+                        var untracked = GitPreflight.ParseNameOnlyOutput(untrackedOutput);
+                        var ignoreCr = GitPreflight.ParseNameOnlyOutput(ignoreCrOutput);
+                        var ignoreWs = GitPreflight.ParseNameOnlyOutput(ignoreWsOutput);
+
+                        Dictionary<string, string>? patches = null;
+                        if (includePatches && changed.Count > 0)
+                        {
+                            patches = new Dictionary<string, string>(StringComparer.Ordinal);
+                            foreach (var file in changed)
+                            {
+                                var patchArgs = GitCommandBuilder.DiffPatchForPath(staged: false, file);
+                                if (!patchArgs.IsSuccess)
+                                    continue;
+                                patches[file] = RunGit(workspacePath, patchArgs.Args!);
+                            }
+                        }
+
+                        var report = GitPreflight.BuildReport(changed, untracked, ignoreCr, ignoreWs, patches);
+                        text = JsonSerializer.Serialize(new
+                        {
+                            success = true,
+                            applied = new[] { "git add --renormalize ." },
+                            changed_files = report.ChangedFiles,
+                            untracked_files = report.UntrackedFiles,
                             semantic_files = report.SemanticFiles,
                             whitespace_only_files = report.WhitespaceOnlyFiles,
                             eol_only_files = report.EolOnlyFiles,

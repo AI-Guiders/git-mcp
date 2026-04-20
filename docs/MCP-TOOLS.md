@@ -52,5 +52,9 @@ git show: содержимое коммита или объекта (rev: HEAD, 
 
 Preflight перед коммитом: классифицирует изменения на semantic/whitespace-only/eol-only/bom-only и возвращает safe-fix подсказки.
 
+### `git_preflight_fix_safe`
+
+Применить безопасные preflight-фиксы: git add --renormalize . и вернуть обновлённый preflight-отчёт.
+
 <!-- GENERATED:ToolCatalog END -->
 

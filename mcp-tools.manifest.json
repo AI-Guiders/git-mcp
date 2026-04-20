@@ -46,6 +46,10 @@
     {
       "name": "git_preflight",
       "description": "Preflight перед коммитом: классифицирует изменения на semantic/whitespace-only/eol-only/bom-only и возвращает safe-fix подсказки."
+    },
+    {
+      "name": "git_preflight_fix_safe",
+      "description": "Применить безопасные preflight-фиксы: git add --renormalize . и вернуть обновлённый preflight-отчёт."
     }
   ]
 }

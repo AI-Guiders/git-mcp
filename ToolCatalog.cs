@@ -197,7 +197,24 @@ internal static class ToolCatalog
                 {
                     workspace_path = new { type = "string", description = "Корень репозитория." },
                     staged = new { type = "boolean", description = "Опционально: true — анализировать staged изменения." },
+                    include_untracked = new { type = "boolean", description = "Опционально: true (по умолчанию) — включать untracked_files." },
                     include_patches = new { type = "boolean", description = "Опционально: true — включить эвристику BOM-only по патчам (медленнее)." }
+                },
+                required = new[] { "workspace_path" }
+            })
+        },
+        new()
+        {
+            Name = "git_preflight_fix_safe",
+            Description =
+                "Применить безопасные preflight-фиксы: git add --renormalize . и вернуть обновлённый preflight-отчёт.",
+            InputSchema = Schema(new
+            {
+                type = "object",
+                properties = new
+                {
+                    workspace_path = new { type = "string", description = "Корень репозитория." },
+                    include_patches = new { type = "boolean", description = "Опционально: true — включить эвристику BOM-only по патчам после фикса." }
                 },
                 required = new[] { "workspace_path" }
             })
