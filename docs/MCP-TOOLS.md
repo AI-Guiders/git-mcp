@@ -48,5 +48,9 @@ git show: содержимое коммита или объекта (rev: HEAD, 
 
 Субмодули: action=status (git submodule status) или update (git submodule update --init [--recursive], опционально path).
 
+### `git_preflight`
+
+Preflight перед коммитом: классифицирует изменения на semantic/whitespace-only/eol-only/bom-only и возвращает safe-fix подсказки.
+
 <!-- GENERATED:ToolCatalog END -->
 

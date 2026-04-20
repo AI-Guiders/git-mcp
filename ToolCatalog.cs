@@ -184,6 +184,23 @@ internal static class ToolCatalog
                 },
                 required = new[] { "workspace_path" }
             })
+        },
+        new()
+        {
+            Name = "git_preflight",
+            Description =
+                "Preflight перед коммитом: классифицирует изменения на semantic/whitespace-only/eol-only/bom-only и возвращает safe-fix подсказки.",
+            InputSchema = Schema(new
+            {
+                type = "object",
+                properties = new
+                {
+                    workspace_path = new { type = "string", description = "Корень репозитория." },
+                    staged = new { type = "boolean", description = "Опционально: true — анализировать staged изменения." },
+                    include_patches = new { type = "boolean", description = "Опционально: true — включить эвристику BOM-only по патчам (медленнее)." }
+                },
+                required = new[] { "workspace_path" }
+            })
         }
     ];
 }

@@ -42,6 +42,10 @@
     {
       "name": "git_submodule",
       "description": "Субмодули: action=status (git submodule status) или update (git submodule update --init [--recursive], опционально path)."
+    },
+    {
+      "name": "git_preflight",
+      "description": "Preflight перед коммитом: классифицирует изменения на semantic/whitespace-only/eol-only/bom-only и возвращает safe-fix подсказки."
     }
   ]
 }

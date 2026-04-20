@@ -221,6 +221,46 @@ var options = new McpServerOptions
                                 throw new ArgumentException("git_submodule: action must be status or update.");
                         }
                         break;
+                    case "git_preflight":
+                    {
+                        var stagedPreflight = GetBool(args, "staged");
+                        var includePatches = GetBoolOrDefault(args, "include_patches", true);
+
+                        var changedOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(stagedPreflight));
+                        var ignoreCrOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(stagedPreflight, ignoreCrAtEol: true));
+                        var ignoreWsOutput = RunGit(workspacePath, GitCommandBuilder.DiffNameOnly(stagedPreflight, ignoreWhitespace: true, ignoreCrAtEol: true));
+
+                        var changed = GitPreflight.ParseNameOnlyOutput(changedOutput);
+                        var ignoreCr = GitPreflight.ParseNameOnlyOutput(ignoreCrOutput);
+                        var ignoreWs = GitPreflight.ParseNameOnlyOutput(ignoreWsOutput);
+
+                        Dictionary<string, string>? patches = null;
+                        if (includePatches && changed.Count > 0)
+                        {
+                            patches = new Dictionary<string, string>(StringComparer.Ordinal);
+                            foreach (var file in changed)
+                            {
+                                var patchArgs = GitCommandBuilder.DiffPatchForPath(stagedPreflight, file);
+                                if (!patchArgs.IsSuccess)
+                                    continue;
+                                patches[file] = RunGit(workspacePath, patchArgs.Args!);
+                            }
+                        }
+
+                        var report = GitPreflight.BuildReport(changed, ignoreCr, ignoreWs, patches);
+                        text = JsonSerializer.Serialize(new
+                        {
+                            success = true,
+                            staged = stagedPreflight,
+                            changed_files = report.ChangedFiles,
+                            semantic_files = report.SemanticFiles,
+                            whitespace_only_files = report.WhitespaceOnlyFiles,
+                            eol_only_files = report.EolOnlyFiles,
+                            bom_only_files = report.BomOnlyFiles,
+                            suggested_safe_fix_commands = report.SuggestedSafeFixCommands
+                        });
+                        break;
+                    }
                     default: throw new ArgumentException($"Unknown tool: {name}.");
                 }
                 return ValueTask.FromResult(new CallToolResult { Content = [new TextContentBlock { Text = text }], IsError = false });
