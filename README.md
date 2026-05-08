@@ -16,6 +16,14 @@ dotnet publish -c Release -o publish
 
 Рекомендуется junction: например `D:\git-mcp` → каталог `publish`; в Cursor в mcp.json указать `command`: `D:\git-mcp\GitMcp.exe`, `args`: `[]`.
 
+### Быстрый локальный publish (рекомендуется)
+
+`publish-and-deploy.ps1` делает publish self-contained `win-x64`, зеркалит в фиксированный путь (по умолчанию `D:\git-mcp`) и гасит процесс, если он лочит файлы:
+
+```powershell
+.\publish-and-deploy.ps1
+```
+
 ## Релизы (без Runner)
 
 См. `scripts/publish-release-win.ps1`: мультиплатформа (win-x64, linux-x64, osx-x64), загрузка в GitLab Generic Package и ссылка в релизе. Требуются `GITLAB_URL`, `GITLAB_TOKEN`.
