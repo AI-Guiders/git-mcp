@@ -2,6 +2,8 @@
 
 MCP-сервер с тулами **git_status**, **git_diff**, **git_log**, **git_fetch**, **git_pull**, **git_branch**, **git_show**, **git_submodule**, **git_commit**, **git_push**. Агент видит состояние репозитория и диффы без выхода из чата. Подключается в Cursor (и где угодно) — один exe, stdio.
 
+**Cursor:** примеры правил для копипаста — **[docs/cursor-rules-examples.md](docs/cursor-rules-examples.md)**.
+
 ## Стек
 
 - C#, .NET 10, win-x64, self-contained (как agent-notes-mcp, dotnet-debug-mcp).
