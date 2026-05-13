@@ -29,10 +29,7 @@
 
   <ItemGroup>
     <PackageReference Include="ModelContextProtocol" Version="0.8.0-preview.1" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\git-mcp-core\GitMcp.Core.csproj" />
+    <PackageReference Include="AIGuiders.GitMcp.Core" Version="1.0.1" />
   </ItemGroup>
 
 </Project>
