@@ -20,7 +20,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GitMcp.csproj" />
-    <ProjectReference Include="..\..\git-mcp-core\GitMcp.Core.csproj" />
     <ProjectReference Include="..\..\tools\McpToolManifest\McpToolManifest.csproj" />
   </ItemGroup>
 
