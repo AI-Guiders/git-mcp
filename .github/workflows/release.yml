@@ -1,4 +1,4 @@
-# Рядом — репозиторий git-mcp-core у того же owner.
+# AIGuiders.GitMcp.Core — restore с nuget.org (Trusted Publishing: репо KarataevDmitry/git-mcp-core).
 name: Release
 
 on:
@@ -28,11 +28,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: src/git-mcp
-
-      - uses: actions/checkout@v4
-        with:
-          repository: ${{ github.repository_owner }}/git-mcp-core
-          path: src/git-mcp-core
 
       - uses: actions/setup-dotnet@v4
         with:
