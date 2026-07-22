@@ -12,6 +12,10 @@
 
 Состояние репозитория: ветка, изменённые/добавленные/удалённые файлы. workspace_path — корень репо (каталог .git или файл .git у субмодуля).
 
+### `git_scene`
+
+SCM scene (compact): dirty counts, ahead/behind, submodule map — без полного porcelain. Prefer before git_status dump. Optional roots[] for multi-repo; include_submodules (default true).
+
 ### `git_diff`
 
 Дифф: не застейдженные изменения (или --staged по опции). Опционально path — один файл/путь.

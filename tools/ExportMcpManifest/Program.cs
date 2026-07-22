@@ -3,6 +3,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ExportMcpManifest;
+using GitMcp;
 using McpToolManifest;
 using Tool = ModelContextProtocol.Protocol.Tool;
 

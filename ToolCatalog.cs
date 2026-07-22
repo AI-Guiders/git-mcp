@@ -2,6 +2,8 @@ using System.Text.Json;
 using ModelContextProtocol.Protocol;
 using Tool = ModelContextProtocol.Protocol.Tool;
 
+namespace GitMcp;
+
 /// <summary>Каталог MCP-тулов. Согласован с <c>mcp-tools.manifest.json</c> и <c>docs/MCP-TOOLS.md</c> (генерация: <c>tools/ExportMcpManifest</c>).</summary>
 internal static class ToolCatalog
 {
@@ -18,6 +20,31 @@ internal static class ToolCatalog
             {
                 type = "object",
                 properties = new { workspace_path = new { type = "string", description = "Каталог workspace (корень репозитория)." } },
+                required = new[] { "workspace_path" }
+            })
+        },
+        new()
+        {
+            Name = "git_scene",
+            Description =
+                "SCM scene (compact): dirty counts, ahead/behind, submodule map — без полного porcelain. Prefer before git_status dump. Optional roots[] for multi-repo; include_submodules (default true).",
+            InputSchema = Schema(new
+            {
+                type = "object",
+                properties = new
+                {
+                    workspace_path = new { type = "string", description = "Primary repo root." },
+                    roots = new
+                    {
+                        type = "array",
+                        items = new { type = "string" },
+                        description = "Optional extra repo roots (multi-root / sibling workspaces)."
+                    },
+                    include_submodules = new { type = "boolean", description = "Default true — include submodule map." },
+                    probe_submodule_dirty = new { type = "boolean", description = "Default true — probe each submodule dirty/ahead (slower)." },
+                    max_roots = new { type = "integer", description = "Cap roots (default 16)." },
+                    max_submodules = new { type = "integer", description = "Cap submodule entries per root (default 64)." }
+                },
                 required = new[] { "workspace_path" }
             })
         },
