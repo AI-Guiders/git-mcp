@@ -50,6 +50,27 @@ internal static class ToolCatalog
         },
         new()
         {
+            Name = "git_diff_scene",
+            Description =
+                "Diff scene (agent comfort): list mode = files+numstat (no dump); path= → structured hunks for one file. Prefer before raw git_diff.",
+            InputSchema = Schema(new
+            {
+                type = "object",
+                properties = new
+                {
+                    workspace_path = new { type = "string", description = "Repo root." },
+                    path = new { type = "string", description = "Optional: one file → hunks mode." },
+                    staged = new { type = "boolean", description = "List/hunks: prefer staged (default false = unstaged first)." },
+                    include_untracked = new { type = "boolean", description = "List mode: include untracked (default true)." },
+                    max_files = new { type = "integer", description = "List cap (default 80)." },
+                    max_hunks = new { type = "integer", description = "Hunks cap (default 40)." },
+                    max_hunk_lines = new { type = "integer", description = "Lines per hunk cap (default 200)." }
+                },
+                required = new[] { "workspace_path" }
+            })
+        },
+        new()
+        {
             Name = "git_diff",
             Description = "Дифф: не застейдженные изменения (или --staged по опции). Опционально path — один файл/путь.",
             InputSchema = Schema(new

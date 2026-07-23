@@ -16,6 +16,10 @@
 
 SCM scene (compact): dirty counts, ahead/behind, submodule map — без полного porcelain. Prefer before git_status dump. Optional roots[] for multi-repo; include_submodules (default true).
 
+### `git_diff_scene`
+
+Diff scene (agent comfort): list mode = files+numstat (no dump); path= → structured hunks for one file. Prefer before raw git_diff.
+
 ### `git_diff`
 
 Дифф: не застейдженные изменения (или --staged по опции). Опционально path — один файл/путь.

@@ -18,6 +18,7 @@ public static class ToolHandlers
         {
             "git_status" => HandleStatus(workspacePath),
             "git_scene" => HandleScene(workspacePath, args),
+            "git_diff_scene" => HandleDiffScene(workspacePath, args),
             "git_diff" => RunGit(workspacePath, GitCommandBuilder.Diff(GetBool(args, "staged"), GetString(args, "path"))),
             "git_log" => RunGit(workspacePath, GitCommandBuilder.Log(GetInt(args, "n", 20))),
             "git_commit" => HandleCommit(workspacePath, args),
@@ -73,6 +74,123 @@ public static class ToolHandlers
             schema = GitScene.SchemaVersion,
             ok = true,
             roots
+        });
+    }
+
+    private static string HandleDiffScene(string workspacePath, IReadOnlyDictionary<string, JsonElement> args)
+    {
+        var path = GetString(args, "path").Trim();
+        var stagedOnly = GetBool(args, "staged");
+        var includeUntracked = GetBoolOrDefault(args, "include_untracked", true);
+        var maxFiles = Math.Clamp(GetInt(args, "max_files", GitDiffScene.MaxFilesDefault), 1, 500);
+        var maxHunks = Math.Clamp(GetInt(args, "max_hunks", GitDiffScene.MaxHunksDefault), 1, 200);
+        var maxHunkLines = Math.Clamp(GetInt(args, "max_hunk_lines", GitDiffScene.MaxHunkLinesDefault), 20, 2000);
+
+        // Detail: one path → structured hunks (not full-repo dump).
+        if (!string.IsNullOrWhiteSpace(path))
+        {
+            var staged = GetBoolOrDefault(args, "staged", false);
+            // If staged not forced, prefer unstaged then staged for this path.
+            string diffText;
+            string area;
+            if (stagedOnly || staged)
+            {
+                diffText = TryRunGit(workspacePath, GitCommandBuilder.Diff(staged: true, path)).Stdout;
+                area = "staged";
+                if (string.IsNullOrWhiteSpace(diffText))
+                {
+                    var u = TryRunGit(workspacePath, GitCommandBuilder.Diff(staged: false, path));
+                    diffText = u.Stdout;
+                    area = "unstaged";
+                }
+            }
+            else
+            {
+                var u = TryRunGit(workspacePath, GitCommandBuilder.Diff(staged: false, path));
+                diffText = u.Stdout;
+                area = "unstaged";
+                if (string.IsNullOrWhiteSpace(diffText))
+                {
+                    var s = TryRunGit(workspacePath, GitCommandBuilder.Diff(staged: true, path));
+                    diffText = s.Stdout;
+                    area = "staged";
+                }
+            }
+
+            var (hunks, truncated) = GitDiffScene.ParseUnifiedDiff(diffText, maxHunks, maxHunkLines);
+            return JsonSerializer.Serialize(new
+            {
+                schema = GitDiffScene.SchemaVersion,
+                ok = true,
+                mode = "hunks",
+                path,
+                area,
+                truncated,
+                hunk_count = hunks.Count,
+                hunks = hunks.Select(h => new
+                {
+                    header = h.Header,
+                    lines = h.Lines.Select(l => new { op = l.Op, text = l.Text })
+                })
+            });
+        }
+
+        // List: file inventory with numstat — agent picks path next.
+        var fileRows = new List<GitDiffScene.FileRow>();
+        var truncatedFiles = false;
+
+        void AddRows(IReadOnlyList<GitDiffScene.FileRow> rows)
+        {
+            foreach (var r in rows)
+            {
+                if (fileRows.Count >= maxFiles)
+                {
+                    truncatedFiles = true;
+                    return;
+                }
+
+                fileRows.Add(r);
+            }
+        }
+
+        if (!stagedOnly)
+        {
+            var unstaged = TryRunGit(workspacePath, GitCommandBuilder.DiffNumstat(staged: false));
+            if (unstaged.ExitCode == 0)
+                AddRows(GitDiffScene.ParseNumstat(unstaged.Stdout, "unstaged", maxFiles));
+        }
+
+        if (fileRows.Count < maxFiles)
+        {
+            var stagedNs = TryRunGit(workspacePath, GitCommandBuilder.DiffNumstat(staged: true));
+            if (stagedNs.ExitCode == 0)
+                AddRows(GitDiffScene.ParseNumstat(stagedNs.Stdout, "staged", maxFiles - fileRows.Count));
+        }
+
+        if (includeUntracked && !stagedOnly && fileRows.Count < maxFiles)
+        {
+            var unt = TryRunGit(workspacePath, GitCommandBuilder.ListUntracked());
+            if (unt.ExitCode == 0)
+                AddRows(GitDiffScene.ParseUntracked(unt.Stdout, maxFiles - fileRows.Count));
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            schema = GitDiffScene.SchemaVersion,
+            ok = true,
+            mode = "list",
+            truncated = truncatedFiles,
+            file_count = fileRows.Count,
+            additions = fileRows.Sum(r => r.Additions),
+            deletions = fileRows.Sum(r => r.Deletions),
+            hint = "Pass path= to open hunks for one file; prefer over raw git_diff dump.",
+            files = fileRows.Select(r => new
+            {
+                path = r.Path,
+                area = r.Area,
+                additions = r.Additions,
+                deletions = r.Deletions
+            })
         });
     }
 
