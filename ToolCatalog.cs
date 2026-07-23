@@ -104,40 +104,71 @@ internal static class ToolCatalog
         {
             Name = "git_commit",
             Description =
-                "Сделать коммит: git add (указанные пути или всё), затем git commit -m. Вызывать только по решению пользователя (логические коммиты).",
+                "Commit: add paths then commit -m. Single-root: workspace_path (+ optional paths). Related multi-root: slices=[{root,paths,message?}]. slices.paths required (no add -A). Operator intent only.",
             InputSchema = Schema(new
             {
                 type = "object",
                 properties = new
                 {
-                    workspace_path = new { type = "string", description = "Корень репозитория." },
-                    message = new { type = "string", description = "Сообщение коммита." },
+                    workspace_path = new { type = "string", description = "Single-root repo. Optional after cdp_open (scm_root) or when slices set." },
+                    message = new { type = "string", description = "Commit message (default for slices missing slice.message)." },
                     paths = new
                     {
                         type = "array",
                         items = new { type = "string" },
-                        description = "Опционально: пути для add (файлы/каталоги). Если не задано — add -A (все изменения)."
+                        description = "Single-root: paths to add. If omitted — add -A. Ignored when slices set."
+                    },
+                    slices = new
+                    {
+                        type = "array",
+                        description = "Related multi-root: [{root, paths[], message?}]. Prefer over N× commit. paths required per slice.",
+                        items = new
+                        {
+                            type = "object",
+                            properties = new
+                            {
+                                root = new { type = "string" },
+                                paths = new { type = "array", items = new { type = "string" } },
+                                message = new { type = "string" }
+                            }
+                        }
                     }
                 },
-                required = new[] { "workspace_path", "message" }
+                required = new[] { "message" }
             })
         },
         new()
         {
             Name = "git_push",
             Description =
-                "Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. dry_run=true — git push --dry-run (без отправки). Вызывать по решению пользователя.",
+                "Push [remote] [branch]. Single-root: workspace_path. Related multi-root: slices=[{root,remote?,branch?,dry_run?}]. Operator intent only.",
             InputSchema = Schema(new
             {
                 type = "object",
                 properties = new
                 {
-                    workspace_path = new { type = "string", description = "Корень репозитория." },
-                    remote = new { type = "string", description = "Опционально: remote (по умолчанию origin)." },
-                    branch = new { type = "string", description = "Опционально: ветка для push. Если не задано — текущая." },
-                    dry_run = new { type = "boolean", description = "Опционально: true — только предпросмотр (--dry-run)." }
+                    workspace_path = new { type = "string", description = "Single-root. Optional after cdp_open or when slices set." },
+                    remote = new { type = "string", description = "Default remote (origin)." },
+                    branch = new { type = "string", description = "Default branch (current)." },
+                    dry_run = new { type = "boolean", description = "true — push --dry-run." },
+                    slices = new
+                    {
+                        type = "array",
+                        description = "Related multi-root: [{root, remote?, branch?, dry_run?}].",
+                        items = new
+                        {
+                            type = "object",
+                            properties = new
+                            {
+                                root = new { type = "string" },
+                                remote = new { type = "string" },
+                                branch = new { type = "string" },
+                                dry_run = new { type = "boolean" }
+                            }
+                        }
+                    }
                 },
-                required = new[] { "workspace_path" }
+                required = Array.Empty<string>()
             })
         },
         new()

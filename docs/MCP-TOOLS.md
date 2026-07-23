@@ -30,11 +30,11 @@ Diff scene (agent comfort): list mode = files+numstat (no dump); path= → struc
 
 ### `git_commit`
 
-Сделать коммит: git add (указанные пути или всё), затем git commit -m. Вызывать только по решению пользователя (логические коммиты).
+Commit: add paths then commit -m. Single-root: workspace_path (+ optional paths). Related multi-root: slices=[{root,paths,message?}]. slices.paths required (no add -A). Operator intent only.
 
 ### `git_push`
 
-Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. dry_run=true — git push --dry-run (без отправки). Вызывать по решению пользователя.
+Push [remote] [branch]. Single-root: workspace_path. Related multi-root: slices=[{root,remote?,branch?,dry_run?}]. Operator intent only.
 
 ### `git_fetch`
 

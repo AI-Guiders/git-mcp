@@ -10,9 +10,21 @@ public static class ToolHandlers
 {
     public static string Handle(string name, IReadOnlyDictionary<string, JsonElement> args)
     {
+        // Multi-root related ship: slices[] — no top-level workspace_path required.
+        if (name is "git_commit" or "git_push")
+        {
+            var slices = TryGetSlices(args);
+            if (slices is { Count: > 0 })
+            {
+                return name == "git_commit"
+                    ? HandleCommitSlices(args, slices)
+                    : HandlePushSlices(args, slices);
+            }
+        }
+
         var workspacePath = GetString(args, "workspace_path");
         if (string.IsNullOrWhiteSpace(workspacePath))
-            throw new ArgumentException("workspace_path is required.");
+            throw new ArgumentException("workspace_path is required (or pass slices[] for related multi-root).");
 
         return name switch
         {
@@ -317,8 +329,149 @@ public static class ToolHandlers
         var message = GetString(args, "message");
         if (string.IsNullOrWhiteSpace(message))
             throw new ArgumentException("message is required for git_commit.");
-        RunGit(workspacePath, GitCommandBuilder.Add(GetStringArray(args, "paths")));
+        var paths = GetStringArray(args, "paths");
+        RunGit(workspacePath, GitCommandBuilder.Add(paths.Count > 0 ? paths : null));
         return RunGit(workspacePath, GitCommandBuilder.Commit(message));
+    }
+
+    /// <summary>
+    /// Related multi-root commit (ADR 0178): one call, per-root paths (no shared-path illusion; no add -A).
+    /// </summary>
+    private static string HandleCommitSlices(
+        IReadOnlyDictionary<string, JsonElement> args,
+        IReadOnlyList<CommitSlice> slices)
+    {
+        var defaultMessage = GetString(args, "message");
+        var results = new List<object>();
+        var anyOk = false;
+        var anyFail = false;
+        foreach (var slice in slices.Take(MaxSlices))
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(slice.Root))
+                    throw new ArgumentException("slice.root is required.");
+                if (slice.Paths.Count == 0)
+                    throw new ArgumentException(
+                        "slice.paths is required and must be non-empty (related mode refuses add -A).");
+                var msg = !string.IsNullOrWhiteSpace(slice.Message) ? slice.Message! : defaultMessage;
+                if (string.IsNullOrWhiteSpace(msg))
+                    throw new ArgumentException("message is required (top-level or slice.message).");
+
+                RunGit(slice.Root, GitCommandBuilder.Add(slice.Paths));
+                var output = RunGit(slice.Root, GitCommandBuilder.Commit(msg));
+                anyOk = true;
+                results.Add(new { root = slice.Root, ok = true, paths = slice.Paths, output });
+            }
+            catch (Exception ex)
+            {
+                anyFail = true;
+                results.Add(new { root = slice.Root, ok = false, paths = slice.Paths, error = ex.Message });
+            }
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            schema = "git_commit_slices/v0",
+            ok = anyOk && !anyFail,
+            partial = anyOk && anyFail,
+            slice_count = results.Count,
+            slices = results
+        });
+    }
+
+    private static string HandlePushSlices(
+        IReadOnlyDictionary<string, JsonElement> args,
+        IReadOnlyList<CommitSlice> slices)
+    {
+        var defaultRemote = GetString(args, "remote");
+        var defaultBranch = GetString(args, "branch");
+        var defaultDry = GetBool(args, "dry_run");
+        var results = new List<object>();
+        var anyOk = false;
+        var anyFail = false;
+        foreach (var slice in slices.Take(MaxSlices))
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(slice.Root))
+                    throw new ArgumentException("slice.root is required.");
+                var remote = !string.IsNullOrWhiteSpace(slice.Remote) ? slice.Remote : defaultRemote;
+                var branch = !string.IsNullOrWhiteSpace(slice.Branch) ? slice.Branch : defaultBranch;
+                var dry = slice.DryRun ?? defaultDry;
+                var output = RunGit(
+                    slice.Root,
+                    GitCommandBuilder.Push(remote, branch, defaultOriginWhenRemoteEmpty: true, dry));
+                anyOk = true;
+                results.Add(new { root = slice.Root, ok = true, dry_run = dry, output });
+            }
+            catch (Exception ex)
+            {
+                anyFail = true;
+                results.Add(new { root = slice.Root, ok = false, error = ex.Message });
+            }
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            schema = "git_push_slices/v0",
+            ok = anyOk && !anyFail,
+            partial = anyOk && anyFail,
+            slice_count = results.Count,
+            slices = results
+        });
+    }
+
+    private const int MaxSlices = 16;
+
+    private readonly record struct CommitSlice(
+        string Root,
+        IReadOnlyList<string> Paths,
+        string? Message,
+        string? Remote,
+        string? Branch,
+        bool? DryRun);
+
+    private static IReadOnlyList<CommitSlice>? TryGetSlices(IReadOnlyDictionary<string, JsonElement> args)
+    {
+        if (!args.TryGetValue("slices", out var el) || el.ValueKind != JsonValueKind.Array)
+            return null;
+        var list = new List<CommitSlice>();
+        foreach (var item in el.EnumerateArray())
+        {
+            if (item.ValueKind != JsonValueKind.Object)
+                continue;
+            var root = item.TryGetProperty("root", out var r) ? r.GetString() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(root) && item.TryGetProperty("workspace_path", out var wp))
+                root = wp.GetString() ?? "";
+            var paths = new List<string>();
+            if (item.TryGetProperty("paths", out var pEl) && pEl.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var p in pEl.EnumerateArray())
+                {
+                    if (p.ValueKind == JsonValueKind.String && p.GetString() is { Length: > 0 } s)
+                        paths.Add(s);
+                }
+            }
+
+            string? message = item.TryGetProperty("message", out var m) ? m.GetString() : null;
+            string? remote = item.TryGetProperty("remote", out var rem) ? rem.GetString() : null;
+            string? branch = item.TryGetProperty("branch", out var br) ? br.GetString() : null;
+            bool? dryRun = null;
+            if (item.TryGetProperty("dry_run", out var d))
+            {
+                dryRun = d.ValueKind switch
+                {
+                    JsonValueKind.True => true,
+                    JsonValueKind.False => false,
+                    _ => null
+                };
+            }
+
+            list.Add(new CommitSlice(root.Trim(), paths, message, remote, branch, dryRun));
+        }
+
+        return list.Count == 0 ? null : list;
     }
 
     private static string HandleFetch(string workspacePath, IReadOnlyDictionary<string, JsonElement> args)

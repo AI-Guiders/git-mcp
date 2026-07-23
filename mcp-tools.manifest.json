@@ -25,11 +25,11 @@
     },
     {
       "name": "git_commit",
-      "description": "Сделать коммит: git add (указанные пути или всё), затем git commit -m. Вызывать только по решению пользователя (логические коммиты)."
+      "description": "Commit: add paths then commit -m. Single-root: workspace_path (+ optional paths). Related multi-root: slices=[{root,paths,message?}]. slices.paths required (no add -A). Operator intent only."
     },
     {
       "name": "git_push",
-      "description": "Отправить коммиты: git push [remote] [branch]. По умолчанию origin и текущая ветка. dry_run=true — git push --dry-run (без отправки). Вызывать по решению пользователя."
+      "description": "Push [remote] [branch]. Single-root: workspace_path. Related multi-root: slices=[{root,remote?,branch?,dry_run?}]. Operator intent only."
     },
     {
       "name": "git_fetch",
