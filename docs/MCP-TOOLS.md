@@ -56,6 +56,10 @@ git show: содержимое коммита или объекта (rev: HEAD, 
 
 Субмодули: action=status (git submodule status) или update (git submodule update --init [--recursive], опционально path).
 
+### `git_plan`
+
+Logical multi-root commit plan: op=draft (dirty paths per root) → agent fills messages → op=validate → op=apply (commits + optional push). Prefer over ad-hoc N× commit. Operator intent only.
+
 ### `git_preflight`
 
 Preflight перед коммитом: классифицирует изменения на semantic/whitespace-only/eol-only/bom-only и возвращает safe-fix подсказки.

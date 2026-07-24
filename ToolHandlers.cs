@@ -22,6 +22,9 @@ public static class ToolHandlers
             }
         }
 
+        if (name == "git_plan")
+            return HandlePlan(args);
+
         var workspacePath = GetString(args, "workspace_path");
         if (string.IsNullOrWhiteSpace(workspacePath))
             throw new ArgumentException("workspace_path is required (or pass slices[] for related multi-root).");
@@ -360,8 +363,9 @@ public static class ToolHandlers
 
                 RunGit(slice.Root, GitCommandBuilder.Add(slice.Paths));
                 var output = RunGit(slice.Root, GitCommandBuilder.Commit(msg));
+                var sha = TryRunGit(slice.Root, ["rev-parse", "HEAD"]).Stdout.Trim();
                 anyOk = true;
-                results.Add(new { root = slice.Root, ok = true, paths = slice.Paths, output });
+                results.Add(new { root = slice.Root, ok = true, paths = slice.Paths, sha = string.IsNullOrWhiteSpace(sha) ? null : sha, output });
             }
             catch (Exception ex)
             {
@@ -419,6 +423,194 @@ public static class ToolHandlers
             partial = anyOk && anyFail,
             slice_count = results.Count,
             slices = results
+        });
+    }
+
+    private static string HandlePlan(IReadOnlyDictionary<string, JsonElement> args)
+    {
+        var op = GetString(args, "op").Trim().ToLowerInvariant();
+        if (op.Length == 0)
+            op = "draft";
+
+        return op switch
+        {
+            "draft" => HandlePlanDraft(args),
+            "validate" => HandlePlanValidate(args),
+            "apply" => HandlePlanApply(args),
+            _ => throw new ArgumentException("git_plan op must be draft|validate|apply.")
+        };
+    }
+
+    private static string HandlePlanDraft(IReadOnlyDictionary<string, JsonElement> args)
+    {
+        var maxPaths = Math.Clamp(GetInt(args, "max_paths", GitPlan.MaxPathsPerRootDefault), 1, 500);
+        var maxRoots = Math.Clamp(GetInt(args, "max_roots", GitScene.MaxRootsDefault), 1, 64);
+        var rootPaths = new List<string>();
+        var primary = GetString(args, "workspace_path").Trim();
+        if (primary.Length > 0)
+            rootPaths.Add(primary);
+        foreach (var extra in GetStringArray(args, "roots"))
+        {
+            if (rootPaths.Count >= maxRoots)
+                break;
+            if (!rootPaths.Exists(r => string.Equals(r, extra, StringComparison.OrdinalIgnoreCase)))
+                rootPaths.Add(extra);
+        }
+
+        if (rootPaths.Count == 0)
+            throw new ArgumentException("git_plan draft needs workspace_path and/or roots[].");
+
+        var roots = new List<object>();
+        foreach (var root in rootPaths.Take(maxRoots))
+        {
+            try
+            {
+                var porcelain = TryRunGit(root, GitCommandBuilder.StatusPorcelain());
+                if (porcelain.ExitCode != 0)
+                    throw new InvalidOperationException(porcelain.Stderr.Trim());
+                var paths = GitPlan.ParsePorcelainPaths(porcelain.Stdout, maxPaths);
+                var counts = GitScene.CountPorcelain(porcelain.Stdout);
+                roots.Add(new
+                {
+                    path = root,
+                    ok = true,
+                    dirty = counts.IsDirty,
+                    counts = new { staged = counts.Staged, unstaged = counts.Unstaged, untracked = counts.Untracked },
+                    paths,
+                    path_count = paths.Count,
+                    truncated = paths.Count >= maxPaths && counts.IsDirty
+                });
+            }
+            catch (Exception ex)
+            {
+                roots.Add(new { path = root, ok = false, error = ex.Message });
+            }
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            schema = GitPlan.SchemaVersion,
+            op = "draft",
+            ok = true,
+            hint = "Split dirty paths into slices[{root,paths[],message}]; then op=validate or op=apply. Optional push=true on apply.",
+            roots
+        });
+    }
+
+    private static string HandlePlanValidate(IReadOnlyDictionary<string, JsonElement> args)
+    {
+        var slices = TryGetSlices(args)
+            ?? throw new ArgumentException("git_plan validate requires slices=[{root,paths,message}].");
+        var checkDirty = GetBoolOrDefault(args, "check_dirty", true);
+        var results = new List<object>();
+        var anyFail = false;
+        foreach (var slice in slices.Take(MaxSlices))
+        {
+            var errors = new List<string>();
+            if (string.IsNullOrWhiteSpace(slice.Root))
+                errors.Add("root required");
+            if (slice.Paths.Count == 0)
+                errors.Add("paths required (non-empty)");
+            if (string.IsNullOrWhiteSpace(slice.Message))
+                errors.Add("message required");
+
+            if (checkDirty && errors.Count == 0)
+            {
+                try
+                {
+                    var porcelain = TryRunGit(slice.Root, GitCommandBuilder.StatusPorcelain());
+                    var dirty = new HashSet<string>(
+                        GitPlan.ParsePorcelainPaths(porcelain.Stdout, 2000),
+                        StringComparer.Ordinal);
+                    foreach (var p in slice.Paths)
+                    {
+                        if (!dirty.Contains(p))
+                            errors.Add($"path_not_dirty:{p}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors.Add(ex.Message);
+                }
+            }
+
+            var ok = errors.Count == 0;
+            if (!ok)
+                anyFail = true;
+            results.Add(new
+            {
+                root = slice.Root,
+                ok,
+                path_count = slice.Paths.Count,
+                message_preview = slice.Message is { Length: > 0 } m
+                    ? (m.Length <= 80 ? m : m[..80] + "…")
+                    : null,
+                errors = ok ? Array.Empty<string>() : errors.ToArray()
+            });
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            schema = GitPlan.SchemaVersion,
+            op = "validate",
+            ok = !anyFail,
+            slice_count = results.Count,
+            slices = results,
+            next = anyFail ? "fix slices then validate again" : "op=apply (optional push=true)"
+        });
+    }
+
+    private static string HandlePlanApply(IReadOnlyDictionary<string, JsonElement> args)
+    {
+        var slices = TryGetSlices(args)
+            ?? throw new ArgumentException("git_plan apply requires slices=[{root,paths,message}].");
+        // Reuse validate gate unless skip_validate=true
+        if (!GetBool(args, "skip_validate"))
+        {
+            var validation = HandlePlanValidate(args);
+            using var vdoc = JsonDocument.Parse(validation);
+            if (!vdoc.RootElement.GetProperty("ok").GetBoolean())
+            {
+                return JsonSerializer.Serialize(new
+                {
+                    schema = GitPlan.SchemaVersion,
+                    op = "apply",
+                    ok = false,
+                    error = "validate_failed",
+                    validation = JsonSerializer.Deserialize<object>(validation)
+                });
+            }
+        }
+
+        var commitJson = HandleCommitSlices(args, slices);
+        using var cdoc = JsonDocument.Parse(commitJson);
+        object? pushResult = null;
+        if (GetBool(args, "push"))
+        {
+            var pushSlices = new List<CommitSlice>();
+            foreach (var s in cdoc.RootElement.GetProperty("slices").EnumerateArray())
+            {
+                if (s.TryGetProperty("ok", out var okEl) && okEl.ValueKind == JsonValueKind.True
+                    && s.TryGetProperty("root", out var rootEl))
+                {
+                    var root = rootEl.GetString() ?? "";
+                    if (root.Length > 0)
+                        pushSlices.Add(new CommitSlice(root, [], null, null, null, null));
+                }
+            }
+
+            if (pushSlices.Count > 0)
+                pushResult = JsonSerializer.Deserialize<object>(HandlePushSlices(args, pushSlices));
+        }
+
+        return JsonSerializer.Serialize(new
+        {
+            schema = GitPlan.SchemaVersion,
+            op = "apply",
+            ok = cdoc.RootElement.GetProperty("ok").GetBoolean(),
+            partial = cdoc.RootElement.TryGetProperty("partial", out var p) && p.ValueKind == JsonValueKind.True,
+            commit = JsonSerializer.Deserialize<object>(commitJson),
+            push = pushResult
         });
     }
 

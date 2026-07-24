@@ -266,6 +266,50 @@ internal static class ToolCatalog
         },
         new()
         {
+            Name = "git_plan",
+            Description =
+                "Logical multi-root commit plan: op=draft (dirty paths per root) → agent fills messages → op=validate → op=apply (commits + optional push). Prefer over ad-hoc N× commit. Operator intent only.",
+            InputSchema = Schema(new
+            {
+                type = "object",
+                properties = new
+                {
+                    op = new { type = "string", description = "draft | validate | apply (default draft)." },
+                    workspace_path = new { type = "string", description = "Primary root for draft (optional if roots[] set)." },
+                    roots = new
+                    {
+                        type = "array",
+                        items = new { type = "string" },
+                        description = "Extra / multi roots for draft."
+                    },
+                    slices = new
+                    {
+                        type = "array",
+                        description = "validate/apply: [{root, paths[], message}].",
+                        items = new
+                        {
+                            type = "object",
+                            properties = new
+                            {
+                                root = new { type = "string" },
+                                paths = new { type = "array", items = new { type = "string" } },
+                                message = new { type = "string" }
+                            }
+                        }
+                    },
+                    check_dirty = new { type = "boolean", description = "validate: ensure paths still dirty (default true)." },
+                    skip_validate = new { type = "boolean", description = "apply: skip validate gate (default false)." },
+                    push = new { type = "boolean", description = "apply: push roots that committed ok." },
+                    remote = new { type = "string", description = "apply+push default remote." },
+                    branch = new { type = "string", description = "apply+push default branch." },
+                    max_paths = new { type = "integer", description = "draft: cap paths per root (default 200)." },
+                    max_roots = new { type = "integer", description = "draft: cap roots (default 16)." }
+                },
+                required = Array.Empty<string>()
+            })
+        },
+        new()
+        {
             Name = "git_preflight",
             Description =
                 "Preflight перед коммитом: классифицирует изменения на semantic/whitespace-only/eol-only/bom-only и возвращает safe-fix подсказки.",
