@@ -8,7 +8,7 @@ param(
     [string] $Tag = "v$Version",
     [string] $GitLabUrl,
     [string] $Token,
-    [string] $ProjectPath = "Krawler/git-mcp",
+    [string] $ProjectPath = "AI-Guiders/git-mcp",
     [string[]] $Rids = @("win-x64", "linux-x64", "osx-x64"),
     [switch] $CreateRelease
 )
