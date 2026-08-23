@@ -8,7 +8,7 @@ MCP-сервер с тулами **git_status**, **git_diff**, **git_log**, **gi
 
 - C#, .NET 10, win-x64, self-contained (как agent-notes-mcp, dotnet-debug-mcp).
 - Вызовы `git` через процесс (требуется установленный git в PATH).
-- Семантика списка аргументов — пакет **[AIGuiders.GitMcp.Core](https://www.nuget.org/packages/AIGuiders.GitMcp.Core)**; исходники и CI публикации пакета — репозиторий **[KarataevDmitry/git-mcp-core](https://github.com/KarataevDmitry/git-mcp-core)** на GitHub (Trusted Publishing на nuget.org привязывается к **этому** репо, см. README там). Субмодуль `git-mcp-core` в `open` — [AI-Guiders/git-mcp-core](https://github.com/AI-Guiders/git-mcp-core).
+- Семантика списка аргументов — пакет **[AIGuiders.GitMcp.Core](https://www.nuget.org/packages/AIGuiders.GitMcp.Core)**; исходники — monorepo **[guiders-core](https://github.com/AI-Guiders/guiders-core)** (`../guiders-core/src/GitMcp.Core`).
 
 ## Публикация
 
